@@ -17,13 +17,13 @@ const Gallery = () => {
 
     // 从 Context 中获取状态和函数
     const context= useContext(DataContext);
-    if (!context) {
-        // 你可以 return 一个 loading，或者错误提示
-        return <div>AgentsContext 未提供</div>;
-      }
-   else {
+//     if (!context) {
+//         // 你可以 return 一个 loading，或者错误提示
+//         return <div>AgentsContext 未提供</div>;
+//       }
+//    else {
     const {agents, setAgents, tools, setTools, models, setModels} = useContext(DataContext);
-   }
+//    }
 
     const API_BASE = 'http://127.0.0.1:5000'
 

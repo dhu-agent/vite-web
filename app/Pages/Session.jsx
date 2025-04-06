@@ -36,7 +36,6 @@ const LoadingMessage = styled.div`
 const Session = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const {  conversations, setConversations } = useContext(DataContext);
-  // const [selectedTeam, setSelectedTeam] = useState(teams.length > 0 ? teams[0] : null);
   const [isLoading, setIsLoading] = useState(false); // 新增加载状态
   const [selectedConversationIndex, setSelectedConversationIndex] = useState(null);
   const [currentConversation, setCurrentConversation] = useState([]);
@@ -60,25 +59,25 @@ const Session = () => {
 
   // 每次 currentConversation 更新时，滚动到最底部并同步 conversations
   useEffect(() => {
-  const timer = setTimeout(() => {
-    if (messagesContainerRef.current) {
-      const container = messagesContainerRef.current;
-      container.scrollTo({
-        top: container.scrollHeight,
-        behavior: 'smooth',
-      });
-    }
+    const timer = setTimeout(() => {
+      if (messagesContainerRef.current) {
+        const container = messagesContainerRef.current;
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: 'smooth',
+        });
+      }
 
-    if (selectedConversationIndex !== null) {
-      setConversations((prevConversations) =>
-        prevConversations.map((conversation, index) =>
-          index === selectedConversationIndex
-            ? { ...conversation, messages: currentConversation }
-            : conversation
-        )
-      );
-    }
-  }, 100); // 每 100ms 更新一次
+      if (selectedConversationIndex !== null) {
+        setConversations((prevConversations) =>
+          prevConversations.map((conversation, index) =>
+            index === selectedConversationIndex
+              ? { ...conversation, messages: currentConversation }
+              : conversation
+          )
+        );
+      }
+    }, 100);
 
   return () => clearTimeout(timer);
 }, [currentConversation, selectedConversationIndex]);
@@ -88,12 +87,6 @@ const Session = () => {
     setSidebarCollapsed(!sidebarCollapsed);
   };
 
-  // // 处理team选择
-  // const handleTeamSelect = ({ key }) => {
-  //   const team = teams[key];
-  //   setSelectedTeam(team);
-  //   message.info(`选中了: ${team.name}`);
-  // };
 
   // 创建新对话
   const handleCreateConversation = () => {
@@ -112,16 +105,6 @@ const Session = () => {
     setCurrentConversation(newConversation.messages);
   };
 
-  // // 动态生成下拉菜单
-  // const teamMenuItems = teams.map((team, index) => ({
-  //   label: team.name,
-  //   key: index,
-  // }));
-  //
-  // const menuProps = {
-  //   items: teamMenuItems,
-  //   onClick: handleTeamSelect,
-  // };
 
   // 切换到指定对话
   const handleSwitchConversation = (index) => {
@@ -171,35 +154,40 @@ const initializeClient = async () => {
   });
 };
 
-  // 流式响应的 API 调用
-// const fetchStreamedResponse = async (message) => {
-//   const client = await initializeClient();
-
-//   const streamResponse = client.runs.stream(
-//     null,
-//     'agent',
-//     {
-//       input: {
-//         messages: [{ role: 'user', content: message }],
-//       },
-//       streamMode: 'messages',
-//     }
-//   );
-//   return streamResponse
-// };
+let lastChunkType = null;
 
 const typeMessage = (chunk, callback) => {
-  let currentText = '';
-    const updatedText =(chunk.data[0]&&chunk.data[0].content.trim(""));
-    console.log(chunk)
-    currentText = updatedText;
-    // console.log('当前文本:', currentText);
+  if (!chunk.data || !chunk.data[0]) {
+    callback();
+    return;
+  }
+
+  const chunkType = chunk.data[0].type;
+  const content = chunk.data[0].content || '';
+
+  // 如果 content 已经是对象（比如搜索结果），序列化为 JSON 字符串
+  const newText = typeof content === 'object' ? JSON.stringify([content]) : content.trim();
+
+
+  if (chunkType === lastChunkType) {
+    let currentText = newText;
     setCurrentConversation((prev) => {
       const updated = [...prev];
       updated[updated.length - 1] = { text: currentText, isUser: false };
-      // console.log('更新后的对话:', updated);
       return updated;
     });
+  } else {
+    setCurrentConversation((prev) => {
+      let updated = [...prev];
+      if (updated.length > 0 && updated[updated.length - 1].text === '') {
+        updated = updated.slice(0, -1);
+      }
+      return [...updated, { text: newText, isUser: false }];
+    });
+    lastChunkType = chunkType;
+  }
+
+  callback();
 };
 
 // 发送消息
@@ -216,11 +204,6 @@ const typeMessage = (chunk, callback) => {
 
 
     try {
-      const systemMessage = { text: '', isUser: false };
-      const updatedCurrentConversationWithReply = [...updatedCurrentConversation, systemMessage];
-      setCurrentConversation(updatedCurrentConversationWithReply);
-      
-      // const getNextChunk = await fetchStreamedResponse(inputValue);
       const client = await initializeClient();
 
       const streamResponse = client.runs.stream(
@@ -236,11 +219,15 @@ const typeMessage = (chunk, callback) => {
       setIsLoading(true)
           for await (const chunk of streamResponse) {
             typeMessage(chunk, () => {
+              console.log(chunk)
               console.log('流式传输完成11');
+              console.log(lastChunkType)
             });
         }
       setIsLoading(false)
-
+      // console.log(lastChunkType)
+      lastChunkType = null;
+      // console.log(lastChunkType)
     } catch (error) {
       console.error('获取流式数据失败:', error);
       setIsLoading(false);
@@ -256,21 +243,6 @@ const typeMessage = (chunk, callback) => {
         <Button className="session-sidebar-button" onClick={toggleSidebar}>
           {sidebarCollapsed ? '>' : '<'}
         </Button>
-        {/*{!sidebarCollapsed && (*/}
-        {/*  <Dropdown menu={menuProps} disabled={teams.length === 0}>*/}
-        {/*    <Button className="session-team-dropdown">*/}
-        {/*      <Space>*/}
-        {/*        {selectedTeam ? selectedTeam.name : '选择团队'}*/}
-        {/*        <DownOutlined />*/}
-        {/*      </Space>*/}
-        {/*    </Button>*/}
-        {/*  </Dropdown>*/}
-        {/*)}*/}
-        {/*{!sidebarCollapsed && (*/}
-        {/*  <div className="session-team-name">*/}
-        {/*    {selectedTeam ? `当前团队: ${selectedTeam.name}` : '未选择团队'}*/}
-        {/*  </div>*/}
-        {/*)}*/}
         <div className="new-con-container">
           <Button
             onClick={handleCreateConversation}
@@ -323,10 +295,6 @@ const typeMessage = (chunk, callback) => {
         </div>
       ) : (
         <MainContent>
-          {/*<div className="con-head">*/}
-          {/*  <h2>{conversations[selectedConversationIndex].title}</h2>*/}
-          {/*  <p>团队: {conversations[selectedConversationIndex].team}</p>*/}
-          {/*</div>*/}
           <MessagesContainer ref={messagesContainerRef}>
             {currentConversation.map((msg, index) => (
               <Message key={index} text={msg.text} isUser={msg.isUser} />
