@@ -1,6 +1,6 @@
 import type { Route } from "./+types/home";
 import { Welcome } from "../welcome/welcome";
-import Gallery from "../pages/Gallery"
+import Gallery from "../Pages/Gallery"
 import Session from "../pages/Session"
 import Sidebar from '../Components/Sidebar/Sidebar';
 import { DataProvider } from "../Contexts/DataContext";
@@ -14,7 +14,7 @@ export function meta({}: Route.MetaArgs) {
 
 export default function Home() {
   return (
-    <DataProvider className="flex flex-col">
+    <DataProvider className="flex flex-col w-full">
       <div className="flex flex-row">
       <Sidebar/>
       <Outlet/>
